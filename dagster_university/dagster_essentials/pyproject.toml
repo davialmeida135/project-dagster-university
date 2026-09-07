@@ -9,7 +9,10 @@ dependencies = [
     "dagster-dg-cli",
     "dagster-webserver",
     "dagster-cloud",
+    # duckdb >=1.3.1 wheels crash with 0xC0000005 (access violation) on
+    # Windows systems with an older MSVC runtime; pin below that version
     "dagster-duckdb",
+    "duckdb<1.3.1",
     "geopandas>=1.0.1,<1.1.0",
     "pandas[parquet]",
     "shapely>=2.0.0",

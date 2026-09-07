@@ -190,3 +190,5 @@ tmp*/
 postgres_data/
 
 .env
+*.db-shm
+*.db-wal
