@@ -5,7 +5,7 @@ import dagster as dg
 import matplotlib.pyplot as plt
 import geopandas as gpd
 
-import duckdb
+from dagster_duckdb import DuckDBResource
 import os
 import pandas as pd
 
@@ -13,29 +13,34 @@ from dagster_essentials.defs.assets import constants
 from dagster._utils.backoff import backoff
 
 
-@dg.asset(deps=["taxi_trips", "taxi_zones"])
-def manhattan_stats() -> None:
-    query = """
-        select
-            zones.zone,
-            zones.borough,
-            zones.geometry,
-            count(1) as num_trips,
-        from trips
-        left join zones on trips.pickup_zone_id = zones.zone_id
-        where borough = 'Manhattan' and geometry is not null
-        group by zone, borough, geometry
+@dg.asset(
+    deps=["taxi_trips", "taxi_zones"]
+)
+def manhattan_stats(database: DuckDBResource) -> None:
+    """
+      Metrics on taxi trips in Manhattan
     """
 
-    conn = duckdb.connect(os.getenv("DUCKDB_DATABASE"))
-    trips_by_zone = conn.execute(query).fetch_df()
+    query = """
+      select
+        zones.zone,
+        zones.borough,
+        zones.geometry,
+        count(1) as num_trips,
+      from trips
+      left join zones on trips.pickup_zone_id = zones.zone_id
+      where geometry is not null
+      group by zone, borough, geometry
+    """
+
+    with database.get_connection() as conn:
+        trips_by_zone = conn.execute(query).fetch_df()
 
     trips_by_zone["geometry"] = gpd.GeoSeries.from_wkt(trips_by_zone["geometry"])
     trips_by_zone = gpd.GeoDataFrame(trips_by_zone)
 
-    with open(constants.MANHATTAN_STATS_FILE_PATH, "w") as output_file:
+    with open(constants.MANHATTAN_STATS_FILE_PATH, 'w') as output_file:
         output_file.write(trips_by_zone.to_json())
-
 
 @dg.asset(
     deps=["manhattan_stats"],
@@ -58,15 +63,7 @@ def manhattan_map() -> None:
 
 
 @dg.asset(deps=["taxi_trips"])
-def trips_by_week() -> None:
-    conn = backoff(
-        fn=duckdb.connect,
-        retry_on=(RuntimeError, duckdb.IOException),
-        kwargs={
-            "database": os.getenv("DUCKDB_DATABASE"),
-        },
-        max_retries=10,
-    )
+def trips_by_week(database: DuckDBResource) -> None:
 
     current_date = datetime.strptime("2023-03-05", constants.DATE_FORMAT)
     end_date = datetime.strptime("2023-04-01", constants.DATE_FORMAT)
@@ -84,7 +81,9 @@ def trips_by_week() -> None:
               and pickup_datetime < '{current_date_str}'::date + interval '1 week'
         """
 
-        data_for_week = conn.execute(query).fetch_df()
+        with database.get_connection() as conn:
+            data_for_week = conn.execute(query).fetch_df()
+
 
         aggregate = (
             data_for_week.agg(
