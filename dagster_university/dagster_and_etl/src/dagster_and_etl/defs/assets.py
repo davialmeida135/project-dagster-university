@@ -10,6 +10,9 @@ import datetime
 # NASA
 # ==================
 
+nasa_partitions_def = dg.DailyPartitionsDefinition(
+    start_date="2025-04-01",
+)
 
 class NasaDate(dg.Config):
     date: str
@@ -24,17 +27,18 @@ class NasaDate(dg.Config):
         return v
 
 
-@dg.asset(kinds={"nasa"})
+@dg.asset(kinds={"nasa"}, partitions_def=nasa_partitions_def)
 def asteroids(
-    context: dg.AssetCheckExecutionContext, config: NasaDate, nasa: NASAResource
+    context: dg.AssetExecutionContext, nasa: NASAResource
 ) -> list[dict]:
-    anchor_date = datetime.datetime.strptime(config.date, "%Y-%m-%d")
+    anchor_date = datetime.datetime.strptime(context.partition_key, "%Y-%m-%d")
     start_date = (anchor_date - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
     return nasa.get_near_earth_asteroids(
         start_date=start_date,
-        end_date=config.date,
+        end_date=context.partition_key,
     )
+
 
 @dg.asset
 def asteroids_file(
@@ -63,6 +67,28 @@ def asteroids_file(
         )
 
     return file_path
+
+
+@dg.asset(
+    kinds={"duckdb"},
+)
+def duckdb_table(
+    context: dg.AssetExecutionContext,
+    database: DuckDBResource,
+    asteroids_file,
+) -> None:
+    table_name = "raw_asteroid_data"
+    with database.get_connection() as conn:
+        table_query = f"""
+            create table if not exists {table_name} (
+                id varchar(10),
+                name varchar(100),
+                absolute_magnitude_h float,
+                is_potentially_hazardous_asteroid boolean
+            ) 
+        """
+        conn.execute(table_query)
+        conn.execute(f"copy {table_name} from '{asteroids_file}'")
 
 
 # ==================
