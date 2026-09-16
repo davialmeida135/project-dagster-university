@@ -17,3 +17,12 @@ src
         ├── lesson_6
         └── lesson_7
 ```
+
+resources:
+  database:
+    config:
+      database: data/staging/data.duckdb
+ops:
+  import_file:
+    config:
+      path: 2018-01-22.csv

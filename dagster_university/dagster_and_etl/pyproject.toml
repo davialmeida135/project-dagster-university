@@ -12,6 +12,7 @@ dependencies = [
     "dagster-dlt",
     "dagster-sling",
     "psycopg2-binary",
+    "duckdb",
     "dlt[duckdb]",
     "pandas",
     # numpy 2.1.0+ required for Python 3.13 compatibility (especially on Windows)
