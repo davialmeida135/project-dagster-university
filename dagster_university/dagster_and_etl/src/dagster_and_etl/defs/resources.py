@@ -4,7 +4,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-
 class NASAResource(dg.ConfigurableResource):
     api_key: str
 

@@ -5,6 +5,7 @@ from dagster_duckdb import DuckDBResource
 from dagster_and_etl.defs.resources import NASAResource
 from pydantic import field_validator
 import datetime
+from dagster_sling import SlingResource, sling_assets
 
 # ==================
 # NASA
@@ -208,3 +209,7 @@ def not_empty(
     return dg.AssetCheckResult(
         passed=True,
     )
+
+# ===========
+# SLING
+# ===========
